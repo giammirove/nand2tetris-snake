@@ -1,0 +1,1058 @@
+// UN SEMPLICE OLD SCHOOL GAME : SNAKE
+// Le regole sono quelle classiche, lo scopo è quello di mangiare piu mele/caramelle possibili
+// si perde quando si tocca la parete o si mangia se stessi
+
+// Pre-requisiti
+// OperatingSystem : lib di nand2tetris
+
+
+// Gianmaria Rovelli 
+// gianmaria.rovelli2@studio.unibo.it
+
+function Main.main 3
+    // LEGENDA
+
+    // static 0 - current x
+    // static 1 - current y
+    // static 2 - last x
+    // static 3 - last y
+
+    // static 4 - grow (bool) ( 1 - grow, 0 - nothing ) 
+    // static 5 - snake len
+    // static 6 - tail movemement counter
+    // D - dx, A - sx, W - top, S - down
+
+    // static 7 - cherry x
+    // static 8 - cherry y
+
+    // static 9 - move list start ( 2048 )
+    // static 10 - move list SP
+    // static 11 - clock
+    // static 12 - velocita (3000 - 2500 - 2000)
+
+    // static 13 - random x per cherry
+    // static 14 - random y per cherry
+
+    // static 15 - punteggio
+
+    // local 0 - pulsante premuto ora
+    // local 1 - pulsante premuto prima
+
+label START_GAME
+
+    call Main.initGame 0
+
+    // IMPOSTO LA PRIMA MOSSA A 0 (PARTE DA FERMO)
+    push constant 0
+    pop local 1
+
+label WHILE
+
+    call Keyboard.keyPressed 0
+    pop local 0
+
+    call Main.eatingCherry 0
+    pop temp 0
+
+    // CONTROLLO DEI MOVIMENTI
+    push local 0
+    push constant 68
+    eq
+    // se premo D prima non doveva esserci A
+    push local 1
+    push constant 65
+    eq
+    not
+    and 
+    if-goto SET_KEY_RIGHT
+    push local 0
+    push constant 65
+    eq
+    // se premo A prima non doveva esserci D
+    push local 1
+    push constant 68
+    eq
+    not
+    and 
+    if-goto SET_KEY_LEFT
+    push local 0
+    push constant 87
+    eq
+    // se premo W prima non doveva esserci S
+    push local 1
+    push constant 83
+    eq
+    not
+    and 
+    if-goto SET_KEY_UP
+    push local 0
+    push constant 83
+    eq
+    // se premo S prima non doveva esserci W
+    push local 1
+    push constant 87
+    eq
+    not
+    and 
+    if-goto SET_KEY_DOWN
+
+label AFTER_SET_KEY
+
+call Main.manageXYCherry 0
+pop temp 0
+
+label WHILE_BODY
+    // AUMENTO IL CLOCK
+    push constant 1
+    push static 11
+    add
+    pop static 11
+
+    push static 11
+    push static 12
+    lt 
+    if-goto WHILE
+
+    push constant 0
+    pop static 11
+
+    // D
+    push local 1
+    push constant 68
+    eq 
+    if-goto KEY_RIGHT
+
+    // A
+    push local 1
+    push constant 65
+    eq 
+    if-goto KEY_LEFT
+
+    // W
+    push local 1
+    push constant 87
+    eq 
+    if-goto KEY_UP
+
+    // S
+    push local 1
+    push constant 83
+    eq 
+    if-goto KEY_DOWN
+
+    goto WHILE
+
+label RESET
+    push constant 0
+    pop local 1
+    goto WHILE
+
+label SET_KEY_RIGHT
+    push constant 68
+    pop local 1
+    goto AFTER_SET_KEY
+
+label KEY_RIGHT
+    call Main.keyRight 0
+    goto MOVE_SNAKE
+
+label SET_KEY_LEFT
+    push constant 65
+    pop local 1
+    goto AFTER_SET_KEY
+
+label KEY_LEFT
+    call Main.keyLeft 0
+    goto MOVE_SNAKE
+
+label SET_KEY_UP
+    push constant 87
+    pop local 1
+    goto AFTER_SET_KEY
+
+label KEY_UP
+    call Main.keyUp 0
+    goto MOVE_SNAKE
+
+label SET_KEY_DOWN
+    push constant 83
+    pop local 1
+    goto AFTER_SET_KEY
+
+label KEY_DOWN
+    call Main.keyDown 0
+    goto MOVE_SNAKE
+
+// CHIAMA LA FUNZIONE CHE SPOSTA LO SNAKE
+label MOVE_SNAKE
+
+    // BORDER CHECK
+    push static 0
+    push constant 16
+    lt
+    if-goto DEAD
+    push static 0
+    push constant 480
+    gt
+    if-goto DEAD
+    push static 1
+    push constant 16
+    lt
+    if-goto DEAD
+    push static 1
+    push constant 227
+    gt
+    if-goto DEAD
+
+    // PRIMA DI MOSTRARE LA NUOVA TESTA CONTROLLO DOVE SIA
+    push static 0
+    push static 1
+    call Main.checkIfCellOccupied 2
+    if-goto DEAD
+
+    push local 1
+    call Main.shiftSnake 1
+    pop temp 0
+goto WHILE
+
+label DEAD
+    // MOSTRO GAME OVER
+    call Main.deadScreen 0
+    pop temp 0
+
+    // CANCELLO MEMORIA USATA
+    push static 9
+    call Memory.deAlloc 1
+
+label DEAD_LOOP
+
+    call Keyboard.keyPressed 0
+    push constant 0
+    gt
+    if-goto START_GAME
+
+    goto DEAD_LOOP
+
+return
+
+function Main.initGame 0
+
+    call Screen.clearScreen 0
+    pop temp 0
+
+    // IMPOSTO CUR X
+    push constant 48
+    pop static 0
+    // IMPOSTO CUR Y
+    push constant 48
+    pop static 1
+    // IMPOSTO LAST X
+    push static 0
+    pop static 2
+    // IMPOSTO LAST Y
+    push static 1
+    pop static 3
+    // grow
+    push constant 0
+    pop static 4
+    // snake len
+    push constant 1
+    pop static 5
+    // tail movemement counter
+    push constant 0
+    pop static 6
+
+    // RESTITUISCE LA POSIZIONE
+    push constant 1000
+    call Memory.alloc 1
+    pop static 9
+    // IMPOSTO MV LIST SP
+    push static 9
+    pop static 10
+
+    // IMPOSTO IL CLOCK a 0
+    push constant 0
+    pop static 11
+    // IMPOSTA LA VELOCITA
+    push constant 2000
+    pop static 12
+
+    // PUNTEGGIO PARTE DA 0
+    push constant 0
+    pop static 15
+
+    call Main.drawNewHead 0
+    pop temp 0
+    call Main.generateCherry 0
+    pop temp 0
+    call Main.showCherry 0
+    pop temp 0
+    call Main.showScore 0
+    pop temp 0
+
+    call Main.showBorder 0
+    pop temp 0
+
+return
+
+function Main.checkIfCellOccupied 0
+    push constant 16384
+    push constant 32
+    push argument 1
+    push constant 1 // aggiungo 1
+    add
+    call Main.prodotto 2
+    add
+    push argument 0
+    push constant 16
+    call Main.dividi 2
+    add
+    pop static 16
+    push static 16
+    call Memory.peek 1
+    pop static 17
+    push static 17
+    push constant 0
+    not
+    eq
+return
+
+function Main.manageXYCherry 0
+// AUMENTO X CHERRY PSEUDO RANDOM
+    push constant 16
+    push static 13
+    add
+    pop static 13
+    push static 13
+    push constant 480
+    gt
+    if-goto RESET_X_CHERRY
+label AFTER_RESET_X_CHERRY
+
+    // AUMENTO Y CHERRY PSEUDO RANDOM
+    push constant 16
+    push static 14
+    add
+    pop static 14
+    push static 14
+    push constant 225
+    gt
+    if-goto RESET_Y_CHERRY
+label AFTER_RESET_Y_CHERRY
+
+goto END
+
+// RESET X CHERRY GENERATA PSEUDO CASUALMENTE
+label RESET_X_CHERRY
+    push constant 32
+    pop static 13
+    goto AFTER_RESET_X_CHERRY
+
+// RESET Y CHERRY GENERATA PSEUDO CASUALMENTE
+label RESET_Y_CHERRY
+    push constant 32
+    pop static 14
+    goto AFTER_RESET_Y_CHERRY
+
+label END
+return
+
+//
+//    DEAD SCREEN
+//
+function Main.deadScreen 0
+
+    push constant 11 // y
+    push constant 27 // x
+    call Output.moveCursor 2
+
+    //G
+    push constant 71
+    call Output.printChar 1
+    //A
+    push constant 65
+    call Output.printChar 1
+    //M
+    push constant 77
+    call Output.printChar 1
+    //E
+    push constant 69
+    call Output.printChar 1
+    // space 
+    push constant 32
+    call Output.printChar 1
+    //O
+    push constant 79
+    call Output.printChar 1
+    //V
+    push constant 86
+    call Output.printChar 1
+    //E
+    push constant 69
+    call Output.printChar 1
+    //R
+    push constant 82
+    call Output.printChar 1
+
+    push constant 13 // y
+    push constant 27 // x
+    call Output.moveCursor 2
+
+    //(
+    push constant 40
+    call Output.printChar 1
+    //A
+    push constant 65
+    call Output.printChar 1
+    //N
+    push constant 78
+    call Output.printChar 1
+    //Y
+    push constant 89
+    call Output.printChar 1
+
+    // (space)
+    push constant 32
+    call Output.printChar 1
+
+    //K
+    push constant 75
+    call Output.printChar 1
+    //E
+    push constant 69
+    call Output.printChar 1
+    //Y
+    push constant 89
+    call Output.printChar 1
+    //)
+    push constant 41
+    call Output.printChar 1
+return
+
+//
+//    MOSTRA I BORDI
+//    RETTANGOLI ?x13 oppure 13x? 
+//
+function Main.showBorder 0 
+
+    push constant 0
+    push constant 0
+    push constant 511
+    push constant 13
+    call Screen.drawRectangle 4
+
+    push constant 0     // x
+    push constant 242   // y
+    push constant 511   // next x
+    push constant 255   // next y
+    call Screen.drawRectangle 4
+
+    push constant 0
+    push constant 0
+    push constant 13
+    push constant 255
+    call Screen.drawRectangle 4
+
+    push constant 498
+    push constant 0
+    push constant 511
+    push constant 255
+    call Screen.drawRectangle 4
+return
+
+//
+//      MOSTRA IL PUNTEGGIO
+//
+function Main.showScore 0
+    push constant 0
+    push constant 25
+    call Output.moveCursor 2
+
+    // (space)
+    push constant 32
+    call Output.printChar 1
+    // (space)
+    push constant 32
+    call Output.printChar 1
+    //S
+    push constant 83
+    call Output.printChar 1
+    //C
+    push constant 67
+    call Output.printChar 1
+    //O
+    push constant 79
+    call Output.printChar 1
+    //R
+    push constant 82
+    call Output.printChar 1
+    //E
+    push constant 69
+    call Output.printChar 1
+    // (space)
+    push constant 32
+    call Output.printChar 1
+    // : 
+    push constant 58
+    call Output.printChar 1
+    // (space) 
+    push constant 32
+    call Output.printChar 1
+    // punteggio
+    push static 15
+    call Output.printInt 1
+    // (space)
+    push constant 32
+    call Output.printChar 1
+    // (space)
+    push constant 32
+    call Output.printChar 1
+return
+
+
+//
+//    GENERA IL PRIMO CHERRY IN 30 30
+//
+function Main.generateCherry 0
+    push constant 80
+    pop static 7
+    push constant 80
+    pop static 8
+return
+
+//
+//   MOSTRA IL CHERRY A SCHERMO
+//
+function Main.showCherry 0
+    push constant 1
+    call Screen.setColor 1
+    push static 7
+    push constant 7
+    add
+    push static 8
+    push constant 7
+    add
+    push constant 7
+    call Screen.drawCircle 3
+    pop temp 0
+return
+
+function Main.eatingCherry 0
+    push static 0
+    push static 7
+    eq
+    not
+    if-goto END
+    push static 1
+    push static 8
+    eq
+    not
+    if-goto END
+    // se sono arrivato qua vuol dire che rispetta i parametri
+    push constant 1
+    pop static 4
+    // aumento la lunghezza dello snake di 1
+    push constant 1
+    push static 5
+    add
+    pop static 5
+
+    // aumento punteggio
+    push constant 1
+    push static 15
+    add
+    pop static 15
+
+    // CONTROLLO CHE LA NUOVA POSIZIONE NON SIA SOPRA IL SERPENTE
+label CHECK_CHERRY_POS
+    call Main.manageXYCherry 0
+    pop temp 0
+    push static 13
+    push static 14
+    call Main.checkIfCellOccupied 2
+    // se occupata riprovo
+    if-goto CHECK_CHERRY_POS
+
+    // ELIMINO CHERRY
+    push static 13
+    pop static 7
+    push static 14
+    pop static 8
+    call Main.showCherry 0
+    pop temp 0
+    call Main.showScore 0
+    pop temp 0
+label END
+return
+
+function Main.clearOldTail 0
+    push constant 0
+    call Screen.setColor 1
+    push static 2
+    push static 3
+    push static 2
+    push constant 16
+    add
+    push static 3
+    push constant 16
+    add
+    call Screen.drawRectangle 4
+return
+
+function Main.drawNewHead 0
+    push constant 1
+    call Screen.setColor 1
+    push static 0
+    push static 1
+    push static 0
+    push constant 16
+    add
+    push static 1
+    push constant 16
+    add
+    call Screen.drawRectangle 4
+return
+
+function Main.keyRight 0
+    push static 0
+    push constant 16
+    add
+    pop static 0
+return
+
+function Main.keyLeft 0
+    push static 0
+    push constant 16
+    sub
+    pop static 0
+return
+
+function Main.keyUp 0
+    push static 1
+    push constant 16
+    sub
+    pop static 1
+return
+
+function Main.keyDown 0
+    push static 1
+    push constant 16
+    add
+    pop static 1
+return
+
+
+function Main.shiftSnake 0
+
+    call Main.drawNewHead 0
+    pop temp 0
+    call Main.clearOldTail 0
+    pop temp 0
+
+    push constant 1
+    push static 4
+    eq
+    if-goto CHERRYEAT
+
+    push static 5 // snake len
+    push constant 1
+    eq
+    if-goto TAILEQHEAD // se la lunghezza è 1 si sposta solo la testa
+
+    goto MOVE
+
+label TAILEQHEAD
+    push static 0
+    pop static 2
+    push static 1
+    pop static 3
+    goto END
+
+label CHERRYEAT
+    // la ripristino a 0
+    push constant 0
+    pop static 4
+    // risetto il counter
+    push static 5
+    pop static 6
+    goto MOVE
+
+label MOVE
+    push argument 0
+    call Main.moveTail 1
+    pop temp 0
+    goto END
+
+label END
+return
+
+
+//
+//    GESTORE MOVIMENTO CODA
+//    argumento 0 := mossa appena fatta
+//
+function Main.moveTail 1
+
+    // Aggiungo in lista la mossa
+    push argument 0
+    call Main.MoveListAdd 1
+    pop temp 0
+
+    // Se il contatore è > 0 ancora non devo muovermi
+    push static 6
+    push constant 1
+    gt
+    if-goto NO_MV
+
+    // IMPOSTO LA MOSSA DA FARE
+    call Main.MoveToDo 0
+    pop local 0
+
+    call Main.MoveListShift 0
+    pop temp 0
+
+    // CONTROLLO PER DECIDERE IL MOVIMENTO DELLA CODA
+
+    push local 0
+    push constant 68
+    eq
+    if-goto MV_DX
+
+    push local 0
+    push constant 65
+    eq
+    if-goto MV_SX
+
+    push local 0
+    push constant 87
+    eq
+    if-goto MV_TOP
+
+    push local 0
+    push constant 83
+    eq
+    if-goto MV_DOWN
+
+    goto END
+
+label MV_DX
+    call Main.moveTailRight 0
+    pop temp 0
+    goto END
+
+label MV_SX
+    call Main.moveTailLeft 0
+    pop temp 0
+    goto END
+
+label MV_TOP
+    call Main.moveTailTop 0
+    pop temp 0
+    goto END
+
+label MV_DOWN
+    call Main.moveTailDown 0
+    pop temp 0
+    goto END
+
+// VUOL DIRE CHE DEVO DECREMENTARE IL COUNTER
+label NO_MV
+    push static 6
+    push static 5
+    push constant 1
+    sub
+    sub
+    pop static 6
+    goto END
+
+label END
+return
+
+
+//
+//    MUOVE LA CODA A DESTRA
+//
+function Main.moveTailRight 0
+    push constant 16
+    push static 2
+    add
+    pop static 2
+return 
+
+//
+//    MUOVE LA CODA A SINISTRA
+//
+function Main.moveTailLeft 0
+    push static 2
+    push constant 16
+    sub
+    pop static 2
+return 
+
+//
+//    MUOVE LA CODA IN ALTO
+//
+function Main.moveTailTop 0
+    push static 3
+    push constant 16
+    sub
+    pop static 3
+return 
+
+//
+//    MUOVE LA CODA IN BASSO
+//
+function Main.moveTailDown 0
+    push static 3
+    push constant 16
+    add
+    pop static 3
+return 
+
+//
+//    PRENDO LA PRIMA MOSSA IN LISTA
+//
+function Main.MoveToDo 0 
+    push static 9
+    call Memory.peek 1
+return
+
+
+//
+//    AGGIUNGE MOSSA IN LISTA DI MOSSE
+//    argument 0 := valore da impostare
+//
+function Main.MoveListAdd 0
+    push static 10
+    push argument 0
+    call Memory.poke 2
+
+    push static 10
+    push constant 1
+    add
+    pop static 10
+return 
+
+
+//
+//    SPOSTA DI 1 VERSO L'ALTO TUTTE LE MOSSA 
+//    ( ELIMINA LA PRIMA MOSSA )
+//    argument 0 := numero di cicli che deve compiere
+//    argument 1 := indirizzo da cui parte (di solito 2048)
+//
+function Main.MoveListShift 3
+
+    // sottraggo 1 al move list SP
+    push static 10
+    push constant 1
+    sub
+    pop static 10
+
+    // fa tanti cicli quanto è lungo il serpente
+    push static 5
+    pop local 0
+
+    push static 9
+    pop local 1
+
+label FOR
+
+    push constant 0
+    push local 0
+    eq
+    if-goto END_FOR
+
+    // prende il numero in pos n+1
+    push local 1
+    push constant 1
+    add
+    call Memory.peek 1
+    pop local 2
+
+    // metto in stack la pos n
+    push local 1
+    push local 2
+    // metto il num in pos n+1 in pos n
+    call Memory.poke 2
+
+    // sposto di 1
+    push constant 1
+    push local 1
+    add
+    pop local 1
+    
+    // decrementa il contatore
+    push local 0
+    push constant 1
+    sub
+    pop local 0
+
+    goto FOR
+label END_FOR
+return
+
+
+function Main.prodotto 1
+    push constant 0
+    pop local 0
+
+    push argument 1
+    push constant 0
+    eq
+    if-goto ZERO
+
+    push argument 0
+    push constant 0
+    eq 
+    if-goto ZERO
+
+label WHILE
+
+    // somma il numero
+    push local 0
+    push argument 0
+    add
+    pop local 0
+
+    // sottrai il contatore
+    push argument 1
+    push constant 1
+    sub
+    pop argument 1
+
+    push argument 1
+    push constant 0
+    eq
+    // se contantore è 0 esco dal ciclo
+    if-goto END
+
+    goto WHILE
+
+label ZERO
+    push constant 0
+    goto END
+
+label END
+return
+
+function Main.dividi 1
+    push constant 0
+    pop local 0
+
+    push argument 0
+    push constant 0
+    eq
+    if-goto ZERO
+
+    push argument 1
+    push constant 0
+    eq
+    if-goto ZERO
+
+label WHILE
+
+    push argument 0
+    push argument 1
+    sub
+    pop argument 0
+
+    push argument 0
+    push constant 0
+    lt // se minore di zero esco
+    if-goto END
+
+    // altrimenti 
+    push constant 1
+    push local 0
+    add
+    pop local 0
+
+    goto WHILE
+
+label ZERO
+    push constant 0
+    pop local 0
+    goto END
+
+label END
+    push local 0
+return
+
+function Main.restoDivisione 0
+
+    push argument 0
+    push constant 0
+    eq
+    if-goto ZERO
+
+    push argument 0
+    push argument 1
+    lt
+    if-goto END
+
+label WHILE
+
+    push argument 0
+    push argument 1
+    sub
+    pop argument 0
+
+    push argument 0
+    push argument 1
+    lt // se minore di zero esco
+    if-goto END
+
+    goto WHILE
+
+label ZERO
+    push constant 0
+    pop argument 0
+    goto END
+
+label END
+    push argument 0
+return
+
+
+ // FUN
+function Main.potenza 1
+    push constant 0
+    pop local 0
+
+    push constant 1
+    push argument 1
+    eq
+    if-goto END
+
+    push argument 1
+    push constant 0
+    eq 
+    if-goto EXP0
+
+label WHILE
+
+    push argument 0
+    push argument 0
+    add
+    pop argument 0
+
+    push argument 1
+    push constant 1
+    sub
+    pop argument 1
+
+    push argument 1
+    push constant 1
+    eq
+    if-goto END
+
+    goto WHILE
+
+label EXP0
+    push constant 1
+    pop argument 0
+    goto END
+
+label END
+    push argument 0
+return
